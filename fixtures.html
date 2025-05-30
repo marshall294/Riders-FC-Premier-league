@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rider Premier League - Fixtures</title>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #f8fafc;
+      color: #0f172a;
+      padding-bottom: 4rem;
+    }
+
+    header, footer {
+      background-color: #1d4ed8;
+      color: white;
+      padding: 1rem;
+      text-align: center;
+    }
+
+    nav {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      margin-top: 0.5rem;
+    }
+
+    nav a {
+      color: white;
+      text-decoration: none;
+      font-weight: bold;
+    }
+
+    nav a:hover {
+      text-decoration: underline;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 1.75rem;
+    }
+
+    .form-section {
+      max-width: 600px;
+      margin: 2rem auto;
+      background: white;
+      padding: 1.5rem;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .form-section label,
+    .form-section input,
+    .form-section button {
+      display: block;
+      width: 100%;
+      margin-bottom: 1rem;
+      font-size: 1rem;
+    }
+
+    .form-section input {
+      padding: 0.5rem;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+    }
+
+    .form-section button {
+      background-color: #1d4ed8;
+      color: white;
+      padding: 0.75rem;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    .form-section button:hover {
+      background-color: #2563eb;
+    }
+
+    .fixtures {
+      max-width: 800px;
+      margin: 2rem auto;
+      background: white;
+      padding: 1rem;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .fixture {
+      padding: 0.75rem;
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    .fixture:last-child {
+      border-bottom: none;
+    }
+
+    .action-buttons {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Rider Premier League</h1>
+    <nav>
+      <a href="teams-view.html">Teams</a>
+      <a href="#">Fixtures</a>
+      <a href="#">Results</a>
+      <a href="#">Players</a>
+      <a href="#">Shops</a>
+    </nav>
+  </header>
+
+  <div class="form-section">
+    <label for="start-date">Select Start Date (Saturday):</label>
+    <input type="date" id="start-date" />
+
+    <label for="match-count">Number of Matches Each Team Plays:</label>
+    <input type="number" id="match-count" min="1" />
+
+    <button id="generate-btn" onclick="generateFixtures()">Generate Fixtures</button>
+    <div class="action-buttons">
+      <button id="save-btn" onclick="saveFixtures()" style="display:none">Save Fixtures</button>
+      <button id="delete-btn" onclick="deleteFixtures()" style="display:none">Delete Fixtures</button>
+      <button id="export-btn" onclick="exportFixtures()" style="display:none">Export Fixtures</button>
+    </div>
+  </div>
+
+  <div class="fixtures" id="fixtures"></div>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyCWD0IVYLfJlHbvzFORG-yoNieLY6LLJ1k",
+      authDomain: "soccer-768a2.firebaseapp.com",
+      projectId: "soccer-768a2",
+      storageBucket: "soccer-768a2.appspot.com",
+      messagingSenderId: "167448274735",
+      appId: "1:167448274735:web:3c097133b333c5089a63da"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    let generatedFixtures = [];
+    let fixturesAlreadySaved = false;
+
+    async function checkExistingFixtures() {
+      const snapshot = await db.collection("fixtures").get();
+      if (!snapshot.empty) {
+        fixturesAlreadySaved = true;
+        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        generatedFixtures = data;
+        displayFixtures(data);
+        document.getElementById("generate-btn").disabled = true;
+        document.getElementById("delete-btn").style.display = "block";
+        document.getElementById("export-btn").style.display = "block";
+      }
+    }
+
+    async function generateFixtures() {
+      if (fixturesAlreadySaved) return alert("Fixtures already exist. Please delete existing fixtures first.");
+
+      const startDateInput = document.getElementById("start-date").value;
+      const matchCount = parseInt(document.getElementById("match-count").value);
+      if (!startDateInput || !matchCount) return alert("Please select date and match count");
+
+      const teamsSnapshot = await db.collection("teams").get();
+      const teams = teamsSnapshot.docs.map(doc => doc.data().teamName);
+      if (teams.length < 2) return alert("Need at least 2 teams");
+
+      const matches = [];
+      const totalMatches = (teams.length * matchCount) / 2;
+      while (matches.length < totalMatches) {
+        const a = teams[Math.floor(Math.random() * teams.length)];
+        const b = teams[Math.floor(Math.random() * teams.length)];
+        if (a !== b) matches.push([a, b]);
+      }
+
+      const startDate = new Date(startDateInput);
+      const fixtures = matches.map((match, i) => {
+        const date = new Date(startDate);
+        date.setDate(startDate.getDate() + i * 7);
+        return {
+          home: match[0],
+          away: match[1],
+          date: date.toDateString(),
+          time: "4:00 PM"
+        };
+      });
+
+      generatedFixtures = fixtures;
+      displayFixtures(fixtures);
+      document.getElementById("save-btn").style.display = "block";
+    }
+
+    function displayFixtures(fixtures) {
+      const container = document.getElementById("fixtures");
+      container.innerHTML = '<h2>Fixtures</h2>' + fixtures.map((f, index) => `
+        <div class="fixture">
+          <input value="${f.date}" onchange="updateFixture(${index}, 'date', this.value)" /> -
+          <input value="${f.home}" onchange="updateFixture(${index}, 'home', this.value)" /> vs
+          <input value="${f.away}" onchange="updateFixture(${index}, 'away', this.value)" /> @
+          <input value="${f.time}" onchange="updateFixture(${index}, 'time', this.value)" />
+        </div>
+      `).join('');
+    }
+
+    function updateFixture(index, field, value) {
+      generatedFixtures[index][field] = value;
+    }
+
+    async function saveFixtures() {
+      for (const f of generatedFixtures) {
+        await db.collection("fixtures").add(f);
+      }
+      alert("Fixtures saved successfully");
+      fixturesAlreadySaved = true;
+      document.getElementById("generate-btn").disabled = true;
+      document.getElementById("save-btn").style.display = "none";
+      document.getElementById("delete-btn").style.display = "block";
+      document.getElementById("export-btn").style.display = "block";
+    }
+
+    async function deleteFixtures() {
+      const snapshot = await db.collection("fixtures").get();
+      const batch = db.batch();
+      snapshot.forEach(doc => batch.delete(doc.ref));
+      await batch.commit();
+      alert("Fixtures deleted successfully");
+      fixturesAlreadySaved = false;
+      generatedFixtures = [];
+      document.getElementById("generate-btn").disabled = false;
+      document.getElementById("fixtures").innerHTML = "";
+      document.getElementById("delete-btn").style.display = "none";
+      document.getElementById("export-btn").style.display = "none";
+    }
+
+    function exportFixtures() {
+      const csv = generatedFixtures.map(f => `${f.date},${f.home},${f.away},${f.time}`).join("\n");
+      const blob = new Blob(["Date,Home,Away,Time\n" + csv], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "fixtures.csv";
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    checkExistingFixtures();
+  </script>
+</body>
+</html>

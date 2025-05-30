@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rider Premier League - Teams</title>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #f8fafc;
+      color: #0f172a;
+      padding-bottom: 4rem;
+    }
+
+    header, footer {
+      background-color: #1d4ed8;
+      color: white;
+      padding: 1rem;
+      text-align: center;
+    }
+
+    nav {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      margin-top: 0.5rem;
+    }
+
+    nav a {
+      color: white;
+      text-decoration: none;
+      font-weight: bold;
+    }
+
+    nav a:hover {
+      text-decoration: underline;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 1.75rem;
+    }
+
+    .search {
+      max-width: 600px;
+      margin: 2rem auto 1rem auto;
+      display: flex;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+
+    .search input {
+      flex: 1;
+      padding: 0.75rem;
+      font-size: 1rem;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+    }
+
+    .teams {
+      display: grid;
+      gap: 1.5rem;
+      max-width: 1000px;
+      margin: auto;
+      padding: 1rem;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    }
+
+    .team {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+      padding: 1rem;
+      text-align: center;
+    }
+
+    .team .logo {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      object-fit: cover;
+      margin-bottom: 0.5rem;
+      border: 4px solid #e2e8f0;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+      background-color: white;
+      transition: transform 0.3s;
+    }
+
+    .team .logo:hover {
+      transform: rotate(3deg) scale(1.05);
+    }
+
+    .coach-section .coach-img {
+      width: 90px;
+      height: 120px;
+      object-fit: cover;
+      border-radius: 12px;
+      margin-bottom: 0.3rem;
+      border: 3px solid #cbd5e1;
+      box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+      background-color: white;
+      transition: transform 0.3s;
+    }
+
+    .coach-section .coach-img:hover {
+      transform: scale(1.05);
+    }
+
+    .team h3 {
+      margin: 0.2rem 0;
+      font-size: 1.2rem;
+    }
+
+    .coach-name {
+      font-size: 0.95rem;
+      color: #475569;
+    }
+
+    footer {
+      margin-top: 2rem;
+    }
+
+    .footer-links {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 1rem;
+      margin-top: 0.5rem;
+    }
+
+    .footer-links a {
+      color: white;
+      text-decoration: none;
+      font-size: 0.9rem;
+    }
+
+    .footer-links a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Rider Premier League</h1>
+    <nav>
+      <a href="index.html">Teams</a>
+      <a href="fixtures-view2.html">Fixtures</a>
+      <a href="result-view.html">Results</a>
+      <a href="players-view.html">Players</a>
+      <a href="standing.html">Table</a>
+    </nav>
+  </header>
+
+  <div class="search">
+    <input type="text" id="search-input" placeholder="Search by team or coach name..." />
+  </div>
+
+  <div class="teams" id="teams-container"></div>
+
+  <footer>
+    <div class="footer-links">
+      <a href="https://wa.me/234810234148" target="_blank">WhatsApp</a>
+      <a href="mailto:rider@gmail.com">Email</a>
+      <a href="#">Facebook</a>
+      <a href="#">Telegram</a>
+      <a href="#">Join Us</a>
+      <a href="#">Support Us</a>
+      <a href="#">Advert Application</a>
+      <a href="#">Promotion</a>
+      <a href="#">Sponsor Application</a>
+    </div>
+  </footer>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyCWD0IVYLfJlHbvzFORG-yoNieLY6LLJ1k",
+      authDomain: "soccer-768a2.firebaseapp.com",
+      projectId: "soccer-768a2",
+      storageBucket: "soccer-768a2.appspot.com",
+      messagingSenderId: "167448274735",
+      appId: "1:167448274735:web:3c097133b333c5089a63da"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    const container = document.getElementById("teams-container");
+    const searchInput = document.getElementById("search-input");
+    let allTeams = [];
+
+    function renderTeams(teams) {
+      container.innerHTML = '';
+      teams.forEach(doc => {
+        const data = doc.data();
+        const div = document.createElement("div");
+        div.className = "team";
+        div.innerHTML = `
+          <img src="${data.teamLogo}" class="logo" alt="Team Logo" />
+          <h3>${data.teamName}</h3>
+          <div class="coach-section">
+            <img src="${data.coachPhoto}" class="coach-img" alt="Coach Photo" />
+            <div class="coach-name">Coach: ${data.coachName}</div>
+          </div>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    db.collection("teams").onSnapshot(snapshot => {
+      allTeams = snapshot.docs;
+      renderTeams(allTeams);
+    });
+
+    searchInput.addEventListener("input", () => {
+      const term = searchInput.value.toLowerCase();
+      const filtered = allTeams.filter(doc => {
+        const data = doc.data();
+        return data.teamName.toLowerCase().includes(term) || data.coachName.toLowerCase().includes(term);
+      });
+      renderTeams(filtered);
+    });
+  </script>
+</body>
+</html>

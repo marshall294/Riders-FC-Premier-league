@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rider Premier League - Results</title>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f1f5f9;
+      padding: 0;
+      margin: 0;
+    }
+
+    header, footer {
+      background-color: #1d4ed8;
+      color: white;
+      text-align: center;
+      padding: 1rem;
+    }
+
+    nav {
+      margin-top: 0.5rem;
+    }
+
+    nav a {
+      color: white;
+      margin: 0 0.5rem;
+      text-decoration: none;
+      font-weight: bold;
+    }
+
+    .container {
+      max-width: 1000px;
+      margin: 2rem auto;
+      padding: 1rem;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    }
+
+    .result-form, .results-display {
+      margin-top: 2rem;
+    }
+
+    .teams-frame, .stats-frame {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin: 1rem 0;
+      padding: 1rem;
+      background: #e2e8f0;
+      border-radius: 8px;
+    }
+
+    .team {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      flex: 1;
+      min-width: 150px;
+    }
+
+    .team img {
+      width: 60px;
+      height: 60px;
+      object-fit: cover;
+      border-radius: 50%;
+      margin-bottom: 0.5rem;
+      border: 2px solid #1d4ed8;
+    }
+
+    .score-input {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      font-weight: bold;
+      gap: 0.5rem;
+    }
+
+    select, input[type="number"] {
+      padding: 0.5rem;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .stats {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      width: 100%;
+      justify-content: space-around;
+    }
+
+    .stat-box {
+      flex: 1;
+      min-width: 140px;
+    }
+
+    .buttons {
+      text-align: center;
+      margin-top: 1rem;
+    }
+
+    button {
+      padding: 0.5rem 1rem;
+      margin: 0.5rem;
+      border: none;
+      border-radius: 5px;
+      background-color: #1d4ed8;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #2563eb;
+    }
+
+    .result-entry {
+      background: #f8fafc;
+      padding: 1rem;
+      margin-top: 1rem;
+      border-left: 4px solid #1d4ed8;
+      border-radius: 6px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Rider Premier League</h1>
+    <nav>
+      <a href="teams-view.html">Teams</a>
+      <a href="fixtures.html">Fixtures</a>
+      <a href="#">Results</a>
+      <a href="#">Players</a>
+      <a href="#">Shops</a>
+    </nav>
+  </header>
+
+  <div class="container">
+    <h2>Match Result Dashboard</h2>
+
+    <div class="result-form">
+      <label for="fixture-select">Select Fixture:</label>
+      <select id="fixture-select"></select>
+
+      <div class="teams-frame">
+        <div class="team" id="home-team">
+          <img src="" alt="Home Logo" id="home-logo" />
+          <div id="home-name">Team 1</div>
+        </div>
+
+        <div class="score-input">
+          <input type="number" id="home-score" min="0" />
+          <span>:</span>
+          <input type="number" id="away-score" min="0" />
+        </div>
+
+        <div class="team" id="away-team">
+          <img src="" alt="Away Logo" id="away-logo" />
+          <div id="away-name">Team 2</div>
+        </div>
+      </div>
+
+      <div class="teams-frame">
+        <div class="team">
+          <label>Scorers (Team 1):</label>
+          <select id="home-scorer" multiple></select>
+        </div>
+        <div class="team">
+          <label>Scorers (Team 2):</label>
+          <select id="away-scorer" multiple></select>
+        </div>
+      </div>
+
+      <div class="stats-frame stats">
+        <div class="stat-box">
+          <label>Ball Possession (Team 1)</label>
+          <input type="number" id="pos-home" />
+        </div>
+        <div class="stat-box">
+          <label>Ball Possession (Team 2)</label>
+          <input type="number" id="pos-away" />
+        </div>
+        <div class="stat-box">
+          <label>Yellow Cards (Team 1)</label>
+          <input type="number" id="yellow-cards-home" />
+        </div>
+        <div class="stat-box">
+          <label>Yellow Cards (Team 2)</label>
+          <input type="number" id="yellow-cards-away" />
+        </div>
+        <div class="stat-box">
+          <label>Red Cards (Team 1)</label>
+          <input type="number" id="red-cards-home" />
+        </div>
+        <div class="stat-box">
+          <label>Red Cards (Team 2)</label>
+          <input type="number" id="red-cards-away" />
+        </div>
+        <div class="stat-box">
+          <label>Corners (Team 1)</label>
+          <input type="number" id="corners-home" />
+        </div>
+        <div class="stat-box">
+          <label>Corners (Team 2)</label>
+          <input type="number" id="corners-away" />
+        </div>
+      </div>
+
+      <div class="buttons">
+        <button id="save-btn">Save Result</button>
+        <button id="update-btn" style="display: none;">Update Result</button>
+      </div>
+    </div>
+
+    <div class="results-display" id="results-display">
+      <h3>Saved Results</h3>
+      <div id="results-container"></div>
+    </div>
+  </div>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyCWD0IVYLfJlHbvzFORG-yoNieLY6LLJ1k",
+      authDomain: "soccer-768a2.firebaseapp.com",
+      projectId: "soccer-768a2",
+      storageBucket: "soccer-768a2.appspot.com",
+      messagingSenderId: "167448274735",
+      appId: "1:167448274735:web:3c097133b333c5089a63da"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    const logoCache = {};
+    let currentUpdateId = null;
+
+    async function getLogoUrl(teamName) {
+      if (logoCache[teamName]) return logoCache[teamName];
+      const snapshot = await db.collection("teams").where("teamName", "==", teamName).limit(1).get();
+      if (!snapshot.empty) {
+        const url = snapshot.docs[0].data().teamLogo || "";
+        logoCache[teamName] = url;
+        return url;
+      }
+      return "https://via.placeholder.com/60?text=+";
+    }
+
+    async function loadPlayers(teamName, selectElement) {
+      selectElement.innerHTML = '';
+      const snapshot = await db.collection("players").where("team", "==", teamName).get();
+      snapshot.forEach(doc => {
+        const opt = document.createElement("option");
+        opt.value = doc.data().name;
+        opt.textContent = doc.data().name;
+        selectElement.appendChild(opt);
+      });
+    }
+
+    async function loadFixtures() {
+      const fixtureSelect = document.getElementById("fixture-select");
+      fixtureSelect.innerHTML = '<option value="">Select a Fixture</option>';
+      const snapshot = await db.collection("fixtures").orderBy("date").get();
+      snapshot.forEach(doc => {
+        const fixture = doc.data();
+        const option = document.createElement("option");
+        option.value = doc.id;
+        option.textContent = `${fixture.home} vs ${fixture.away} - ${fixture.date}`;
+        fixtureSelect.appendChild(option);
+      });
+    }
+
+    document.getElementById("fixture-select").addEventListener("change", async function () {
+      const fixtureId = this.value;
+      if (!fixtureId) return;
+      const doc = await db.collection("fixtures").doc(fixtureId).get();
+      if (!doc.exists) return;
+
+      const { home, away } = doc.data();
+      document.getElementById("home-name").textContent = home;
+      document.getElementById("away-name").textContent = away;
+      document.getElementById("home-logo").src = await getLogoUrl(home);
+      document.getElementById("away-logo").src = await getLogoUrl(away);
+
+      await loadPlayers(home, document.getElementById("home-scorer"));
+      await loadPlayers(away, document.getElementById("away-scorer"));
+    });
+
+    document.getElementById("save-btn").addEventListener("click", async () => {
+      const fixtureId = document.getElementById("fixture-select").value;
+      if (!fixtureId) return alert("Please select a fixture.");
+
+      const data = collectFormData(fixtureId);
+
+      try {
+        await db.collection("results").add(data);
+        alert("Result saved!");
+        loadResults();
+        resetForm();
+      } catch (err) {
+        console.error(err);
+        alert("Failed to save result.");
+      }
+    });
+
+    document.getElementById("update-btn").addEventListener("click", async () => {
+      if (!currentUpdateId) return;
+      const fixtureId = document.getElementById("fixture-select").value;
+      const updatedData = collectFormData(fixtureId);
+      try {
+        await db.collection("results").doc(currentUpdateId).update(updatedData);
+        alert("Result updated!");
+        currentUpdateId = null;
+        loadResults();
+        resetForm();
+      } catch (err) {
+        console.error(err);
+        alert("Failed to update result.");
+      }
+    });
+
+    function collectFormData(fixtureId) {
+      return {
+        fixtureId,
+        homeTeam: document.getElementById("home-name").textContent,
+        awayTeam: document.getElementById("away-name").textContent,
+        homeScore: +document.getElementById("home-score").value || 0,
+        awayScore: +document.getElementById("away-score").value || 0,
+        stats: {
+          posHome: +document.getElementById("pos-home").value || 0,
+          posAway: +document.getElementById("pos-away").value || 0,
+          yellowCards: {
+            home: +document.getElementById("yellow-cards-home").value || 0,
+            away: +document.getElementById("yellow-cards-away").value || 0,
+          },
+          redCards: {
+            home: +document.getElementById("red-cards-home").value || 0,
+            away: +document.getElementById("red-cards-away").value || 0,
+          },
+          corners: {
+            home: +document.getElementById("corners-home").value || 0,
+            away: +document.getElementById("corners-away").value || 0,
+          }
+        },
+        scorers: {
+          home: Array.from(document.getElementById("home-scorer").selectedOptions).map(o => o.value),
+          away: Array.from(document.getElementById("away-scorer").selectedOptions).map(o => o.value)
+        },
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      };
+    }
+
+    async function loadResults() {
+      const container = document.getElementById("results-container");
+      container.innerHTML = "";
+
+      const snapshot = await db.collection("results").orderBy("createdAt", "desc").get();
+      for (const doc of snapshot.docs) {
+        const data = doc.data();
+        const homeLogo = await getLogoUrl(data.homeTeam);
+        const awayLogo = await getLogoUrl(data.awayTeam);
+
+        const div = document.createElement("div");
+        div.className = "result-entry";
+        div.innerHTML = `
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <div style="text-align: center; flex: 1;">
+              <img src="${homeLogo}" width="50"/><br>${data.homeTeam}
+            </div>
+            <div style="font-size: 1.5rem; font-weight: bold;">${data.homeScore} : ${data.awayScore}</div>
+            <div style="text-align: center; flex: 1;">
+              <img src="${awayLogo}" width="50"/><br>${data.awayTeam}
+            </div>
+          </div>
+          <hr>
+          <div><strong>Scorers</strong><br>
+            <b>${data.homeTeam}</b>: ${data.scorers.home.join(", ") || 'None'}<br>
+            <b>${data.awayTeam}</b>: ${data.scorers.away.join(", ") || 'None'}
+          </div>
+          <div style="margin-top: 0.5rem;"><strong>Stats</strong><br>
+            Possession: ${data.stats.posHome}% - ${data.stats.posAway}%<br>
+            Yellow Cards: ${data.stats.yellowCards.home} - ${data.stats.yellowCards.away}<br>
+            Red Cards: ${data.stats.redCards.home} - ${data.stats.redCards.away}<br>
+            Corners: ${data.stats.corners.home} - ${data.stats.corners.away}
+          </div>
+          <div class="buttons">
+            <button onclick="editResult('${doc.id}')">Edit</button>
+          </div>
+        `;
+        container.appendChild(div);
+      }
+    }
+
+    async function editResult(resultId) {
+      const doc = await db.collection("results").doc(resultId).get();
+      if (!doc.exists) return;
+
+      const data = doc.data();
+      currentUpdateId = resultId;
+      document.getElementById("fixture-select").value = data.fixtureId;
+      document.getElementById("home-score").value = data.homeScore;
+      document.getElementById("away-score").value = data.awayScore;
+      document.getElementById("pos-home").value = data.stats.posHome;
+      document.getElementById("pos-away").value = data.stats.posAway;
+      document.getElementById("yellow-cards-home").value = data.stats.yellowCards.home;
+      document.getElementById("yellow-cards-away").value = data.stats.yellowCards.away;
+      document.getElementById("red-cards-home").value = data.stats.redCards.home;
+      document.getElementById("red-cards-away").value = data.stats.redCards.away;
+      document.getElementById("corners-home").value = data.stats.corners.home;
+      document.getElementById("corners-away").value = data.stats.corners.away;
+
+      await document.getElementById("fixture-select").dispatchEvent(new Event('change'));
+
+      setTimeout(() => {
+        [...document.getElementById("home-scorer").options].forEach(option => {
+          option.selected = data.scorers.home.includes(option.value);
+        });
+        [...document.getElementById("away-scorer").options].forEach(option => {
+          option.selected = data.scorers.away.includes(option.value);
+        });
+      }, 500);
+
+      document.getElementById("update-btn").style.display = 'inline-block';
+      document.getElementById("save-btn").style.display = 'none';
+    }
+
+    function resetForm() {
+      document.getElementById("save-btn").style.display = 'inline-block';
+      document.getElementById("update-btn").style.display = 'none';
+      document.querySelector(".result-form").reset();
+      document.getElementById("home-scorer").innerHTML = "";
+      document.getElementById("away-scorer").innerHTML = "";
+    }
+
+    loadFixtures();
+    loadResults();
+  </script>
+</body>
+</html>

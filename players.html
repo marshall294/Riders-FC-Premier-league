@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Add Player to Team</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f9f9f9;
+      padding: 2rem;
+    }
+    h2 {
+      margin-top: 2rem;
+      margin-bottom: 1rem;
+    }
+    .form-group {
+      margin-bottom: 1rem;
+    }
+    label {
+      display: block;
+      margin-bottom: 0.3rem;
+    }
+    input, select {
+      width: 100%;
+      padding: 0.5rem;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+    button {
+      padding: 0.6rem 1.2rem;
+      background-color: #2563eb;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      margin: 0.2rem;
+    }
+    button:hover {
+      background-color: #1d4ed8;
+    }
+    .success {
+      margin-top: 1rem;
+      color: green;
+    }
+    .error {
+      margin-top: 1rem;
+      color: red;
+    }
+
+    /* Player Card Styling */
+    .players-container {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .player-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      border-radius: 1rem;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+      padding: 1rem;
+      margin: 1rem;
+      background: #fff;
+      max-width: 250px;
+      transition: transform 0.3s ease;
+    }
+    .player-card:hover {
+      transform: translateY(-5px);
+    }
+    .team-logo {
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+      object-fit: cover;
+      margin-bottom: 0.5rem;
+    }
+    .player-photo {
+      width: 100%;
+      height: 180px;
+      object-fit: cover;
+      border-radius: 1rem;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+      margin-bottom: 0.5rem;
+    }
+    .player-name {
+      font-size: 1.2rem;
+      font-weight: bold;
+      text-align: center;
+      margin-bottom: 0.25rem;
+    }
+    .player-info {
+      font-size: 0.9rem;
+      text-align: center;
+      color: #444;
+      margin-bottom: 0.5rem;
+    }
+    @media (min-width: 768px) {
+      .player-name {
+        font-size: 1.4rem;
+      }
+      .player-info {
+        font-size: 1rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <h2>Add / Edit Player</h2>
+
+  <div class="form-group">
+    <label for="team-select">Select Team</label>
+    <select id="team-select">
+      <option value="">-- Choose Team --</option>
+    </select>
+  </div>
+
+  <div class="form-group">
+    <label for="player-name">Player Name</label>
+    <input type="text" id="player-name" placeholder="e.g. Lionel Messi">
+  </div>
+
+  <div class="form-group">
+    <label for="player-position">Position</label>
+    <input type="text" id="player-position" placeholder="e.g. Forward">
+  </div>
+
+  <div class="form-group">
+    <label for="player-photo">Photo URL</label>
+    <input type="url" id="player-photo" placeholder="https://example.com/photo.jpg">
+  </div>
+
+  <button id="submit-btn" onclick="addPlayer()">Add Player</button>
+
+  <div id="message"></div>
+
+  <h2>Players List</h2>
+  <div class="players-container" id="players-list"></div>
+
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyCWD0IVYLfJlHbvzFORG-yoNieLY6LLJ1k",
+      authDomain: "soccer-768a2.firebaseapp.com",
+      projectId: "soccer-768a2",
+      storageBucket: "soccer-768a2.appspot.com",
+      messagingSenderId: "167448274735",
+      appId: "1:167448274735:web:3c097133b333c5089a63da"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+  </script>
+
+  <script>
+    const teamSelect = document.getElementById('team-select');
+    const msgDiv = document.getElementById('message');
+    const submitBtn = document.getElementById('submit-btn');
+    let editingPlayerId = null;
+    let teamMap = {}; // id => { teamName, logo }
+
+    async function loadTeams() {
+      const snapshot = await db.collection("teams").get();
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        teamMap[doc.id] = { name: data.teamName, logo: data.logo };
+        const opt = document.createElement("option");
+        opt.value = doc.id;
+        opt.textContent = data.teamName;
+        teamSelect.appendChild(opt);
+      });
+    }
+
+    async function addPlayer() {
+      const teamId = teamSelect.value;
+      const name = document.getElementById('player-name').value.trim();
+      const position = document.getElementById('player-position').value.trim();
+      const photo = document.getElementById('player-photo').value.trim();
+
+      if (!teamId || !name || !position || !photo) {
+        showMessage("Please fill in all fields.", true);
+        return;
+      }
+
+      try {
+        await db.collection("players").add({ teamId, name, position, photo });
+        showMessage("Player added successfully!");
+        resetForm();
+        loadPlayers();
+      } catch (e) {
+        showMessage("Error adding player: " + e.message, true);
+      }
+    }
+
+    async function loadPlayers() {
+      const listDiv = document.getElementById('players-list');
+      listDiv.innerHTML = "";
+      const snapshot = await db.collection("players").get();
+
+      snapshot.forEach(playerDoc => {
+        const playerData = playerDoc.data();
+        const team = teamMap[playerData.teamId] || { name: "Unknown", logo: "" };
+
+        const div = document.createElement("div");
+        div.className = "player-card";
+        div.innerHTML = `
+          ${team.logo ? `<img src="${team.logo}" class="team-logo" alt="${team.name} Logo">` : ""}
+          <img src="${playerData.photo}" class="player-photo" alt="${playerData.name}">
+          <div class="player-name">${playerData.name}</div>
+          <div class="player-info">
+            Position: ${playerData.position}<br>
+            Team: ${team.name}
+          </div>
+          <button onclick="editPlayer('${playerDoc.id}', '${playerData.name}', '${playerData.position}', '${playerData.photo}', '${playerData.teamId}')">Edit</button>
+          <button onclick="deletePlayer('${playerDoc.id}')">Delete</button>
+        `;
+        listDiv.appendChild(div);
+      });
+    }
+
+    function editPlayer(id, name, position, photo, teamId) {
+      document.getElementById('player-name').value = name;
+      document.getElementById('player-position').value = position;
+      document.getElementById('player-photo').value = photo;
+      document.getElementById('team-select').value = teamId;
+      submitBtn.textContent = "Update Player";
+      editingPlayerId = id;
+      submitBtn.onclick = () => updatePlayer();
+    }
+
+    async function updatePlayer() {
+      const name = document.getElementById('player-name').value.trim();
+      const position = document.getElementById('player-position').value.trim();
+      const photo = document.getElementById('player-photo').value.trim();
+      const teamId = document.getElementById('team-select').value;
+
+      if (!name || !position || !photo || !teamId) {
+        showMessage("All fields are required for update.", true);
+        return;
+      }
+
+      try {
+        await db.collection("players").doc(editingPlayerId).update({
+          name, position, photo, teamId
+        });
+        showMessage("Player updated successfully.");
+        resetForm();
+        loadPlayers();
+      } catch (e) {
+        showMessage("Error updating player: " + e.message, true);
+      }
+    }
+
+    async function deletePlayer(id) {
+      if (!confirm("Are you sure you want to delete this player?")) return;
+
+      try {
+        await db.collection("players").doc(id).delete();
+        showMessage("Player deleted.");
+        loadPlayers();
+      } catch (e) {
+        showMessage("Error deleting player: " + e.message, true);
+      }
+    }
+
+    function resetForm() {
+      document.getElementById('player-name').value = "";
+      document.getElementById('player-position').value = "";
+      document.getElementById('player-photo').value = "";
+      document.getElementById('team-select').value = "";
+      submitBtn.textContent = "Add Player";
+      submitBtn.onclick = addPlayer;
+      editingPlayerId = null;
+    }
+
+    function showMessage(msg, isError = false) {
+      msgDiv.textContent = msg;
+      msgDiv.className = isError ? "error" : "success";
+    }
+
+    loadTeams().then(loadPlayers);
+  </script>
+</body>
+</html>

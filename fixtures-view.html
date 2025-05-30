@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rider Premier League - Fixtures Viewer</title>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #f8fafc;
+      color: #0f172a;
+      padding-bottom: 4rem;
+    }
+
+    header, footer {
+      background-color: #1d4ed8;
+      color: white;
+      padding: 1rem;
+      text-align: center;
+    }
+
+    nav {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      margin-top: 0.5rem;
+    }
+
+    nav a {
+      color: white;
+      text-decoration: none;
+      font-weight: bold;
+    }
+
+    nav a:hover {
+      text-decoration: underline;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 1.75rem;
+    }
+
+    .fixtures-container {
+      max-width: 900px;
+      margin: 2rem auto;
+      background: white;
+      padding: 1.5rem;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .fixture {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1rem;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      background-color: #f1f5f9;
+    }
+
+    .team {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .team img {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid #cbd5e1;
+    }
+
+    .details {
+      text-align: center;
+      font-size: 0.95rem;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Rider Premier League</h1>
+    <nav>
+      <a href="teams-view.html">Teams</a>
+      <a href="fixtures.html">Fixtures</a>
+      <a href="#">Results</a>
+      <a href="#">Players</a>
+      <a href="#">Shops</a>
+    </nav>
+  </header>
+
+  <div class="fixtures-container" id="fixtures-container">
+    <h2 style="text-align:center">Complete Fixtures</h2>
+  </div>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyCWD0IVYLfJlHbvzFORG-yoNieLY6LLJ1k",
+      authDomain: "soccer-768a2.firebaseapp.com",
+      projectId: "soccer-768a2",
+      storageBucket: "soccer-768a2.appspot.com",
+      messagingSenderId: "167448274735",
+      appId: "1:167448274735:web:3c097133b333c5089a63da"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    const logoCache = {};
+
+    async function getLogoUrl(teamName) {
+      if (logoCache[teamName]) return logoCache[teamName];
+      try {
+        const doc = await db.collection("teams").where("teamName", "==", teamName).limit(1).get();
+        if (!doc.empty) {
+          const data = doc.docs[0].data();
+          const url = data.teamLogo;
+          logoCache[teamName] = url;
+          return url;
+        } else {
+          return "https://via.placeholder.com/40?text=+";
+        }
+      } catch (e) {
+        return "https://via.placeholder.com/40?text=+";
+      }
+    }
+
+    async function loadFixtures() {
+      const container = document.getElementById("fixtures-container");
+      const snapshot = await db.collection("fixtures").orderBy("date").get();
+      const fixtures = snapshot.docs.map(doc => doc.data());
+
+      for (const fixture of fixtures) {
+        const homeLogo = await getLogoUrl(fixture.home);
+        const awayLogo = await getLogoUrl(fixture.away);
+
+        const fixtureDiv = document.createElement("div");
+        fixtureDiv.className = "fixture";
+        fixtureDiv.innerHTML = `
+          <div class="team">
+            <img src="${homeLogo}" alt="${fixture.home}" />
+            <span>${fixture.home}</span>
+          </div>
+          <div class="details">
+            <div>${fixture.date} @ ${fixture.time}</div>
+            <div>Technical College Kwamba Soccer Field</div>
+          </div>
+          <div class="team">
+            <span>${fixture.away}</span>
+            <img src="${awayLogo}" alt="${fixture.away}" />
+          </div>
+        `;
+        container.appendChild(fixtureDiv);
+      }
+    }
+
+    loadFixtures();
+  </script>
+</body>
+</html>

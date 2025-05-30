@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Match Results Viewer</title>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #f8fafc;
+      color: #0f172a;
+      padding-bottom: 4rem;
+    }
+
+    header, footer {
+      background-color: #1d4ed8;
+      color: white;
+      padding: 1rem;
+      text-align: center;
+    }
+
+    nav {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      margin-top: 0.5rem;
+    }
+
+    nav a {
+      color: white;
+      text-decoration: none;
+      font-weight: bold;
+    }
+
+    nav a:hover {
+      text-decoration: underline;
+    }
+    .container {
+      max-width: 1000px;
+      margin: auto;
+      padding: 1rem;
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 0 20px rgba(0,0,0,0.1);
+    }
+    .result-item {
+      border-bottom: 1px solid #ccc;
+      padding: 1.5rem 0;
+    }
+    .teams {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      text-align: center;
+    }
+    .team {
+      flex: 1;
+    }
+    .team-name {
+      font-weight: bold;
+      font-size: 1.2rem;
+    }
+    .team-logo {
+      width: 70px;
+      height: 70px;
+      border-radius: 50%;
+      border: 4px solid #ccc;
+      box-shadow: 0 0 8px rgba(0,0,0,0.15);
+      object-fit: cover;
+    }
+    .score {
+      font-size: 2rem;
+      font-weight: bold;
+      margin: 0 1rem;
+    }
+    .info {
+      text-align: center;
+      margin-bottom: 0.5rem;
+      font-size: 0.9rem;
+      color: #555;
+    }
+    .scorers {
+      font-size: 0.85rem;
+      color: #444;
+      text-align: center;
+      margin-top: 0.3rem;
+    }
+    .stats {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+    .stat-block {
+      flex: 1 1 45%;
+      background: #f9fafb;
+      padding: 0.8rem;
+      border-radius: 10px;
+      box-shadow: 0 0 4px rgba(0,0,0,0.05);
+    }
+    @media(max-width: 600px) {
+      .teams {
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+      .score {
+        margin: 0.5rem 0;
+      }
+      .stat-block {
+        flex: 1 1 100%;
+      }
+    }
+    footer {
+      margin-top: 2rem;
+    }
+
+    .footer-links {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 1rem;
+      margin-top: 0.5rem;
+    }
+
+    .footer-links a {
+      color: white;
+      text-decoration: none;
+      font-size: 0.9rem;
+    }
+
+    .footer-links a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Rider Premier League</h1>
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="#">Teams</a>
+      <a href="fixtures-view2.html">Fixtures</a>
+      <a href="players-view.html">Players</a>
+      <a href="standing.html">Table</a>
+    </nav>
+  </header>
+  <div class="container">
+    <h2 style="text-align:center">All Match Results</h2>
+    <div id="results"></div>
+  </div>
+  <footer>
+    <div class="footer-links">
+      <a href="https://wa.me/234810234148" target="_blank">WhatsApp</a>
+      <a href="mailto:rider@gmail.com">Email</a>
+      <a href="#">Facebook</a>
+      <a href="#">Telegram</a>
+      <a href="#">Join Us</a>
+      <a href="#">Support Us</a>
+      <a href="#">Advert Application</a>
+      <a href="#">Promotion</a>
+      <a href="#">Sponsor Application</a>
+    </div>
+  </footer>
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyCWD0IVYLfJlHbvzFORG-yoNieLY6LLJ1k",
+      authDomain: "soccer-768a2.firebaseapp.com",
+      projectId: "soccer-768a2",
+      storageBucket: "soccer-768a2.appspot.com",
+      messagingSenderId: "167448274735",
+      appId: "1:167448274735:web:3c097133b333c5089a63da"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    const teams = {};
+
+    async function fetchTeams() {
+      const snapshot = await db.collection("teams").get();
+      snapshot.forEach(doc => {
+        teams[doc.data().teamName] = doc.data();
+      });
+    }
+
+    async function displayResults() {
+      const resEl = document.getElementById("results");
+      resEl.innerHTML = "";
+      const snapshot = await db.collection("results").orderBy("date").get();
+      let weekCounter = 1;
+
+      snapshot.forEach(doc => {
+        const d = doc.data();
+        const home = teams[d.home];
+        const away = teams[d.away];
+        const html = `
+          <div class="result-item">
+            <div class="info">Week ${weekCounter++} - ${d.date} ${d.time} @ ${d.venue}</div>
+            <div class="teams">
+              <div class="team">
+                <img src="${home?.teamLogo}" class="team-logo"><br>
+                <div class="team-name">${d.home}</div>
+                <div class="scorers">${(d.homeScorers || []).join(", ")}</div>
+              </div>
+              <div class="score">${d.score}</div>
+              <div class="team">
+                <img src="${away?.teamLogo}" class="team-logo"><br>
+                <div class="team-name">${d.away}</div>
+                <div class="scorers">${(d.awayScorers || []).join(", ")}</div>
+              </div>
+            </div>
+            <div class="stats">
+              <div class="stat-block">
+                <strong>${d.home} Stats</strong><br>
+                Possession: ${d.stats?.home?.possession}%<br>
+                Yellow Cards: ${d.stats?.home?.yellow}<br>
+                Red Cards: ${d.stats?.home?.red}<br>
+                Corners: ${d.stats?.home?.corners}
+              </div>
+              <div class="stat-block">
+                <strong>${d.away} Stats</strong><br>
+                Possession: ${d.stats?.away?.possession}%<br>
+                Yellow Cards: ${d.stats?.away?.yellow}<br>
+                Red Cards: ${d.stats?.away?.red}<br>
+                Corners: ${d.stats?.away?.corners}
+              </div>
+            </div>
+          </div>
+        `;
+        resEl.innerHTML += html;
+      });
+    }
+
+    async function init() {
+      await fetchTeams();
+      await displayResults();
+    }
+
+    init();
+  </script>
+</body>
+</html>

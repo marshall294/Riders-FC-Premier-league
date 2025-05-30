@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Match Results Dashboard</title>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f1f5f9;
+      margin: 0;
+      padding: 1rem;
+    }
+    .container {
+      max-width: 1000px;
+      margin: 2rem auto;
+      background: white;
+      padding: 2rem;
+      border-radius: 16px;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+    }
+    h1, h3 {
+      text-align: center;
+      color: #0f172a;
+    }
+    label {
+      font-weight: 600;
+      margin-top: 1rem;
+      display: block;
+    }
+    select, input, button {
+      width: 100%;
+      padding: 0.5rem;
+      margin-top: 0.3rem;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+    }
+    .teams, .stats {
+      display: flex;
+      gap: 1rem;
+      margin: 1rem 0;
+    }
+    .team img {
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      object-fit: cover;
+    }
+    .result-item {
+      background: #f8fafc;
+      padding: 1rem;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+    }
+    .actions button {
+      margin-right: 0.5rem;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>Match Results Dashboard</h1>
+
+  <label for="fixture-select">Select Fixture</label>
+  <select id="fixture-select"></select>
+  <div id="fixture-info"></div>
+
+  <div class="teams">
+    <div class="team" id="home-team"></div>
+    <div class="team" id="away-team"></div>
+  </div>
+
+  <label for="score">Score (Home - Away)</label>
+  <input type="text" id="score" placeholder="e.g. 2 - 1" />
+
+  <label for="home-scorers">Add Home Scorer</label>
+  <select id="home-scorers"></select>
+  <ul id="home-scorers-list"></ul>
+
+  <label for="away-scorers">Add Away Scorer</label>
+  <select id="away-scorers"></select>
+  <ul id="away-scorers-list"></ul>
+
+  <div class="stats">
+    <div>
+      <h4>Home Stats</h4>
+      <input id="home-possession" placeholder="Ball Possession (%)" />
+      <input id="home-yellow" placeholder="Yellow Cards" />
+      <input id="home-red" placeholder="Red Cards" />
+      <input id="home-corners" placeholder="Corners" />
+    </div>
+    <div>
+      <h4>Away Stats</h4>
+      <input id="away-possession" placeholder="Ball Possession (%)" />
+      <input id="away-yellow" placeholder="Yellow Cards" />
+      <input id="away-red" placeholder="Red Cards" />
+      <input id="away-corners" placeholder="Corners" />
+    </div>
+  </div>
+
+  <button id="save-btn">Save Result</button>
+  <div id="results-list"></div>
+</div>
+
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyCWD0IVYLfJlHbvzFORG-yoNieLY6LLJ1k",
+    authDomain: "soccer-768a2.firebaseapp.com",
+    projectId: "soccer-768a2",
+    storageBucket: "soccer-768a2.appspot.com",
+    messagingSenderId: "167448274735",
+    appId: "1:167448274735:web:3c097133b333c5089a63da"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+
+  let fixtures = [], teams = {}, currentFixture = null, editingId = null;
+  let homeScorers = [], awayScorers = [];
+
+  const fixtureSelect = document.getElementById('fixture-select');
+  const fixtureInfo = document.getElementById('fixture-info');
+  const homeTeamDiv = document.getElementById('home-team');
+  const awayTeamDiv = document.getElementById('away-team');
+  const homeScorerSelect = document.getElementById('home-scorers');
+  const awayScorerSelect = document.getElementById('away-scorers');
+  const homeScorerList = document.getElementById('home-scorers-list');
+  const awayScorerList = document.getElementById('away-scorers-list');
+
+  function updateScorerList() {
+    homeScorerList.innerHTML = homeScorers.map(s => `<li>${s}</li>`).join("");
+    awayScorerList.innerHTML = awayScorers.map(s => `<li>${s}</li>`).join("");
+  }
+
+  homeScorerSelect.addEventListener('change', () => {
+    const value = homeScorerSelect.value;
+    if (value) {
+      homeScorers.push(value);
+      updateScorerList();
+    }
+  });
+
+  awayScorerSelect.addEventListener('change', () => {
+    const value = awayScorerSelect.value;
+    if (value) {
+      awayScorers.push(value);
+      updateScorerList();
+    }
+  });
+
+  fixtureSelect.addEventListener('change', () => {
+    const val = fixtureSelect.value;
+    currentFixture = fixtures.find(f => f.id === val);
+    if (currentFixture) {
+      const { date, time, home, away } = currentFixture.data;
+      fixtureInfo.innerText = `${date} ${time} | Technical College Soccer Field`;
+      renderTeams(home, away);
+    }
+  });
+
+  async function loadTeamsAndFixtures() {
+    const teamSnap = await db.collection("teams").get();
+    teamSnap.forEach(doc => {
+      teams[doc.data().teamName] = doc.data();
+    });
+
+    const fixtureSnap = await db.collection("fixtures").get();
+    fixtures = fixtureSnap.docs.map(doc => ({ id: doc.id, data: doc.data() }));
+    fixtureSelect.innerHTML = fixtures.map(f => {
+      const d = f.data;
+      return `<option value="${f.id}">${d.home} vs ${d.away}</option>`;
+    }).join("");
+
+    if (fixtures.length) {
+      fixtureSelect.dispatchEvent(new Event('change'));
+    }
+  }
+
+  function renderTeams(home, away) {
+    const h = teams[home], a = teams[away];
+    homeTeamDiv.innerHTML = `<h3>${home}</h3><img src="${h?.teamLogo || ''}" />`;
+    awayTeamDiv.innerHTML = `<h3>${away}</h3><img src="${a?.teamLogo || ''}" />`;
+
+    homeScorerSelect.innerHTML = h?.players?.map(p => `<option value="${p}">${p}</option>`).join("") || '';
+    awayScorerSelect.innerHTML = a?.players?.map(p => `<option value="${p}">${p}</option>`).join("") || '';
+
+    homeScorers = [];
+    awayScorers = [];
+    updateScorerList();
+  }
+
+  document.getElementById("save-btn").addEventListener("click", saveResult);
+
+  async function saveResult() {
+    if (!currentFixture) return;
+    const id = currentFixture.id;
+    const score = document.getElementById("score").value;
+    const stats = {
+      home: {
+        possession: document.getElementById("home-possession").value,
+        yellow: document.getElementById("home-yellow").value,
+        red: document.getElementById("home-red").value,
+        corners: document.getElementById("home-corners").value,
+      },
+      away: {
+        possession: document.getElementById("away-possession").value,
+        yellow: document.getElementById("away-yellow").value,
+        red: document.getElementById("away-red").value,
+        corners: document.getElementById("away-corners").value,
+      }
+    };
+
+    const resultData = {
+      fixtureId: id,
+      date: currentFixture.data.date,
+      time: currentFixture.data.time,
+      venue: "Technical College Soccer Field",
+      home: currentFixture.data.home,
+      away: currentFixture.data.away,
+      score,
+      homeScorers,
+      awayScorers,
+      stats
+    };
+
+    const exists = await db.collection("results").where("fixtureId", "==", id).get();
+    if (!exists.empty && !editingId) {
+      alert("Result for this fixture already exists. Use Edit to update.");
+      return;
+    }
+
+    if (editingId) {
+      await db.collection("results").doc(editingId).set(resultData);
+      editingId = null;
+    } else {
+      await db.collection("results").add(resultData);
+    }
+
+    resetForm();
+    displayResults();
+  }
+
+  function resetForm() {
+    document.getElementById("score").value = "";
+    homeScorers = [];
+    awayScorers = [];
+    updateScorerList();
+    editingId = null;
+  }
+
+  async function displayResults() {
+    const snapshot = await db.collection("results").orderBy("date").get();
+    const container = document.getElementById("results-list");
+    container.innerHTML = "<h3>Saved Results</h3>";
+    let week = 1;
+
+    snapshot.forEach(doc => {
+      const d = doc.data();
+      const home = teams[d.home];
+      const away = teams[d.away];
+      container.innerHTML += `
+        <div class="result-item">
+          <strong>Week ${week++}</strong> - ${d.date} ${d.time} @ ${d.venue}<br/>
+          <strong>${d.home}</strong> <img src="${home?.teamLogo}" width="30"> vs 
+          <img src="${away?.teamLogo}" width="30"> <strong>${d.away}</strong><br/>
+          <strong>Score:</strong> ${d.score}<br/>
+          <strong>Scorers:</strong> ${d.home}: ${d.homeScorers.join(", ")} | ${d.away}: ${d.awayScorers.join(", ")}<br/>
+          <strong>Statistics:</strong><br/>
+          ${d.home} - Possession: ${d.stats.home.possession}% | Yellow: ${d.stats.home.yellow} | Red: ${d.stats.home.red} | Corners: ${d.stats.home.corners}<br/>
+          ${d.away} - Possession: ${d.stats.away.possession}% | Yellow: ${d.stats.away.yellow} | Red: ${d.stats.away.red} | Corners: ${d.stats.away.corners}<br/>
+          <div class="actions">
+            <button onclick="loadEdit('${doc.id}')">Edit</button>
+            <button onclick="deleteResult('${doc.id}')">Delete</button>
+          </div>
+        </div>`;
+    });
+  }
+
+  async function loadEdit(id) {
+    const doc = await db.collection("results").doc(id).get();
+    const d = doc.data();
+    editingId = id;
+    const match = fixtures.find(f => f.id === d.fixtureId);
+    fixtureSelect.value = match.id;
+    fixtureSelect.dispatchEvent(new Event('change'));
+    document.getElementById("score").value = d.score;
+    homeScorers = d.homeScorers;
+    awayScorers = d.awayScorers;
+    updateScorerList();
+
+    document.getElementById("home-possession").value = d.stats.home.possession;
+    document.getElementById("home-yellow").value = d.stats.home.yellow;
+    document.getElementById("home-red").value = d.stats.home.red;
+    document.getElementById("home-corners").value = d.stats.home.corners;
+
+    document.getElementById("away-possession").value = d.stats.away.possession;
+    document.getElementById("away-yellow").value = d.stats.away.yellow;
+    document.getElementById("away-red").value = d.stats.away.red;
+    document.getElementById("away-corners").value = d.stats.away.corners;
+  }
+
+  async function deleteResult(id) {
+    await db.collection("results").doc(id).delete();
+    displayResults();
+  }
+
+  window.onload = async () => {
+    await loadTeamsAndFixtures();
+    displayResults();
+  };
+</script>
+</body>
+</html>

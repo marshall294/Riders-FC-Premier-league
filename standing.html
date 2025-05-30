@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>League Standings</title>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  <style>
+    :root {
+      --primary: #1d4ed8;
+      --bg-light: #f8fafc;
+      --text-dark: #0f172a;
+      --text-gray: #475569;
+      --card-bg: #ffffff;
+      --error: #dc2626;
+      --success: #16a34a;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: #f8fafc;
+      color: #0f172a;
+    }
+
+    header {
+      background: #1d4ed8;
+      padding: 1rem;
+      color: white;
+      text-align: center;
+    }
+
+    nav {
+      background: #1e40af;
+      display: flex;
+      justify-content: center;
+      gap: 1.5rem;
+      padding: 0.75rem;
+    }
+
+    nav a {
+      color: white;
+      text-decoration: none;
+      font-weight: 500;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: auto;
+      background: white;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    th, td {
+      padding: 0.75rem;
+      text-align: center;
+      border-bottom: 1px solid #ddd;
+    }
+    th {
+      background: #0f172a;
+      color: white;
+    }
+    tr:hover {
+      background: #f1f5f9;
+    }
+    img.logo {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      border: 3px solid #94a3b8;
+      box-shadow: 0 0 5px rgba(0,0,0,0.2);
+    }
+    footer {
+      background: var(--primary);
+      color: white;
+      text-align: center;
+      padding: 2rem 1rem;
+    }
+
+    footer a {
+      display: inline-block;
+      color: white;
+      margin: 0.5rem 1rem;
+      text-decoration: none;
+    }
+
+    footer a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Rider Premier League</h1>
+    <nav>
+      <a href="index.html">Teams</a>
+      <a href="fixtures-view2.html">Fixtures</a>
+      <a href="result-view.html">Results</a>
+      <a href="players-view.html">Players</a>
+      <a href="standing.html">Table</a>
+    </nav>
+  </header>
+  <h1>League Standings</h1>
+  <table>
+    <thead>
+      <tr>
+        <th>Pos</th>
+        <th>Team</th>
+        <th>Logo</th>
+        <th>MP</th>
+        <th>W</th>
+        <th>D</th>
+        <th>L</th>
+        <th>GF</th>
+        <th>GA</th>
+        <th>GD</th>
+        <th>Pts</th>
+      </tr>
+    </thead>
+    <tbody id="standings-body"></tbody>
+  </table>
+  <footer>
+    <div class="footer-links">
+      <a href="https://wa.me/234810234148" target="_blank">WhatsApp</a>
+      <a href="mailto:rider@gmail.com">Email</a>
+      <a href="#">Facebook</a>
+      <a href="#">Telegram</a>
+      <a href="#">Join Us</a>
+      <a href="#">Support Us</a>
+      <a href="#">Advert Application</a>
+      <a href="#">Promotion</a>
+      <a href="#">Sponsor Application</a>
+    </div>
+  </footer>
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyCWD0IVYLfJlHbvzFORG-yoNieLY6LLJ1k",
+      authDomain: "soccer-768a2.firebaseapp.com",
+      projectId: "soccer-768a2",
+      storageBucket: "soccer-768a2.appspot.com",
+      messagingSenderId: "167448274735",
+      appId: "1:167448274735:web:3c097133b333c5089a63da"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    const standingsBody = document.getElementById("standings-body");
+
+    let teamsData = [];
+    let resultsData = [];
+
+    function calculateStandings(results, teams) {
+      const table = {};
+
+      teams.forEach(doc => {
+        const data = doc.data();
+        const name = data.teamName;
+        table[name] = {
+          name,
+          logo: data.teamLogo,
+          MP: 0, W: 0, D: 0, L: 0, GF: 0, GA: 0, GD: 0, Pts: 0
+        };
+      });
+
+      results.forEach(doc => {
+        const d = doc.data();
+        if (!d.score || !d.home || !d.away) return;
+
+        const [homeGoals, awayGoals] = d.score.split("-").map(s => parseInt(s.trim()));
+        const home = table[d.home];
+        const away = table[d.away];
+
+        if (!home || !away || isNaN(homeGoals) || isNaN(awayGoals)) return;
+
+        home.MP++; away.MP++;
+        home.GF += homeGoals; home.GA += awayGoals;
+        away.GF += awayGoals; away.GA += homeGoals;
+
+        if (homeGoals > awayGoals) {
+          home.W++; away.L++; home.Pts += 3;
+        } else if (homeGoals < awayGoals) {
+          away.W++; home.L++; away.Pts += 3;
+        } else {
+          home.D++; away.D++; home.Pts += 1; away.Pts += 1;
+        }
+
+        home.GD = home.GF - home.GA;
+        away.GD = away.GF - away.GA;
+      });
+
+      const sorted = Object.values(table).sort((a, b) => {
+        if (b.Pts !== a.Pts) return b.Pts - a.Pts;
+        if (b.GD !== a.GD) return b.GD - a.GD;
+        return b.GF - a.GF;
+      });
+
+      standingsBody.innerHTML = "";
+      sorted.forEach((team, index) => {
+        standingsBody.innerHTML += `
+          <tr>
+            <td>${index + 1}</td>
+            <td><strong>${team.name}</strong></td>
+            <td><img src="${team.logo}" class="logo" /></td>
+            <td>${team.MP}</td>
+            <td>${team.W}</td>
+            <td>${team.D}</td>
+            <td>${team.L}</td>
+            <td>${team.GF}</td>
+            <td>${team.GA}</td>
+            <td>${team.GD}</td>
+            <td><strong>${team.Pts}</strong></td>
+          </tr>
+        `;
+      });
+    }
+
+    function updateStandings() {
+      if (teamsData.length > 0 && resultsData.length > 0) {
+        calculateStandings(resultsData, teamsData);
+      }
+    }
+
+    // Real-time listeners
+    db.collection("teams").onSnapshot(snapshot => {
+      teamsData = snapshot.docs;
+      updateStandings();
+    });
+
+    db.collection("results").onSnapshot(snapshot => {
+      resultsData = snapshot.docs;
+      updateStandings();
+    });
+  </script>
+</body>
+</html>
